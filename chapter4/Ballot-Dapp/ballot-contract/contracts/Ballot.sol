@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.0 <0.9.0;  
+pragma solidity >=0.6.0 <0.9.0;  
 
 //투표 스마트 컨트랙트
 contract Ballot {
@@ -17,46 +17,38 @@ contract Ballot {
     mapping(address => Voter) voters;  
     Proposal[] proposals;
 
-    enum Phase {Init,Regs, Vote, Done}  
-    Phase public state = Phase.Done; 
     
        //modifiers
-   modifier validPhase(Phase reqPhase) 
-    { require(state == reqPhase); 
-      _; 
-    } 
-    
+   
     modifier onlyChair() 
      {require(msg.sender == chairperson);
       _;
      }
+     
+     modifier validVoter()
+    {
+        require(voters[msg.sender].weight > 0, "Not a Registered Voter");
+        _;
+    }
 
-    
-    constructor (uint numProposals) {
+    constructor (uint numProposals)  {
         chairperson = msg.sender;
         voters[chairperson].weight = 2; // weight 2 for testing purposes
         //proposals.length = numProposals; -- before 0.6.0
-        for (uint prop = 0; prop < numProposals; prop ++)
+        for (uint8 prop = 0; prop < numProposals; prop ++)
             proposals.push(Proposal(0));
-        state = Phase.Regs;
+        
     }
     
-     function changeState(Phase x) onlyChair public {
+     
+    function register(address voter) public  onlyChair {
         
-        require (x > state );
-       
-        state = x;
-     }
-    
-    function register(address voter) public validPhase(Phase.Regs) onlyChair {
-       
-        require (! voters[voter].voted);
         voters[voter].weight = 1;
-        
+        voters[voter].voted = false;
     }
 
    
-    function vote(uint toProposal) public validPhase(Phase.Vote)  {
+    function vote(uint toProposal) public  validVoter{
       
         Voter memory sender = voters[msg.sender];
         
@@ -68,7 +60,7 @@ contract Ballot {
         proposals[toProposal].voteCount += sender.weight;
     }
 
-    function reqWinner() public validPhase(Phase.Done) view returns (uint winningProposal) {
+    function reqWinner() public view returns (uint winningProposal) {
        
         uint winningVoteCount = 0;
         for (uint prop = 0; prop < proposals.length; prop++) 
